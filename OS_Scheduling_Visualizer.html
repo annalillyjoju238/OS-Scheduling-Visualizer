@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OS Scheduling Visualizer</title>
+    <style>
+      :root {
+        --ink: #172033;
+        --muted: #64748b;
+        --line: #dbe3ee;
+        --bg: #f4f7fb;
+        --blue: #2457d6;
+        --pale: #eaf0ff;
+        --green: #16845b;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.5 Arial,
+          sans-serif;
+      }
+      header {
+        background: #14213d;
+        color: white;
+        padding: 25px 18px;
+        text-align: center;
+      }
+      header h1 {
+        margin: 0 0 5px;
+        font-size: 27px;
+      }
+      header p {
+        margin: 0;
+        color: #d5def1;
+      }
+      main {
+        max-width: 1100px;
+        margin: 22px auto;
+        padding: 0 15px;
+      }
+      .tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+      }
+      button,
+      .tab {
+        border: 0;
+        border-radius: 8px;
+        padding: 10px 15px;
+        background: #e4eaf5;
+        color: var(--ink);
+        font-weight: 700;
+        cursor: pointer;
+      }
+      button.primary,
+      .tab.active {
+        background: var(--blue);
+        color: white;
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .panel {
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 13px;
+        padding: 20px;
+        margin-bottom: 17px;
+        box-shadow: 0 3px 12px #1720330a;
+      }
+      h2 {
+        font-size: 20px;
+        margin: 0 0 14px;
+      }
+      h3 {
+        font-size: 16px;
+        margin: 18px 0 8px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+      }
+      label {
+        display: block;
+        font-weight: 700;
+        font-size: 13px;
+        color: #334155;
+      }
+      input,
+      select {
+        display: block;
+        width: 100%;
+        padding: 10px;
+        margin-top: 5px;
+        border: 1px solid #cbd5e1;
+        border-radius: 7px;
+        font: inherit;
+        background: white;
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+      }
+      .hint {
+        color: var(--muted);
+        font-size: 13px;
+        margin: 8px 0;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+        gap: 10px;
+        margin: 14px 0;
+      }
+      .stat {
+        background: var(--pale);
+        padding: 12px;
+        border-radius: 9px;
+      }
+      .stat small {
+        display: block;
+        color: var(--muted);
+      }
+      .stat strong {
+        font-size: 21px;
+      }
+      .sequence {
+        padding: 11px;
+        background: #f8fafc;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        overflow-wrap: anywhere;
+        font-weight: 700;
+      }
+      canvas {
+        width: 100%;
+        height: 280px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        margin-top: 8px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        font-size: 14px;
+      }
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 8px;
+        text-align: center;
+      }
+      th {
+        background: #f1f5f9;
+      }
+      .gantt {
+        display: flex;
+        overflow-x: auto;
+        padding: 10px 0;
+        gap: 3px;
+      }
+      .block {
+        min-width: 65px;
+        text-align: center;
+        background: #dbeafe;
+        border: 1px solid #7da5ee;
+        border-radius: 5px;
+        padding: 8px 5px;
+      }
+      .block b {
+        display: block;
+      }
+      .hidden {
+        display: none;
+      }
+      .status {
+        font-weight: 700;
+        color: var(--green);
+      }
+      footer {
+        text-align: center;
+        color: var(--muted);
+        padding: 15px;
+        font-size: 12px;
+      }
+      @media (max-width: 600px) {
+        header h1 {
+          font-size: 22px;
+        }
+        .panel {
+          padding: 14px;
+        }
+        canvas {
+          height: 230px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>OS Scheduling Visualizer</h1>
+      <p>Interactive visualization of Disk and CPU Scheduling Algorithms</p>
+    </header>
+    <main>
+      <div class="tabs">
+        <button class="tab active" id="diskTab" onclick="showTab('disk')">
+          Disk Scheduling
+        </button>
+        <button class="tab" id="cpuTab" onclick="showTab('cpu')">
+          CPU Scheduling
+        </button>
+      </div>
+
+      <section id="diskSection">
+        <div class="panel">
+          <h2>Part A: Disk Scheduling</h2>
+          <div class="grid">
+            <label
+              >Disk cylinders (maximum number)
+              <input id="diskSize" type="number" min="2" value="200"
+            /></label>
+            <label
+              >Initial head position
+              <input id="head" type="number" min="0" value="50"
+            /></label>
+            <label
+              >Request queue (comma-separated)
+              <input id="queue" value="82, 170, 43, 140, 24, 16, 190"
+            /></label>
+            <label
+              >Direction (for SCAN, C-SCAN and LOOK)
+              <select id="direction">
+                <option value="right">Right / Higher cylinders</option>
+                <option value="left">Left / Lower cylinders</option>
+              </select></label
+            >
+          </div>
+          <p class="hint">
+            Cylinder numbers range from 0 to disk size − 1. Example: 200
+            cylinders means 0–199.
+          </p>
+          <div class="actions">
+            <button class="primary" onclick="runDisk()">
+              Run all disk algorithms</button
+            ><button onclick="loadDiskSample()">Load sample input</button>
+          </div>
+          <div id="diskError" class="hint"></div>
+        </div>
+        <div class="panel">
+          <h2>Disk scheduling results</h2>
+          <div id="diskResults">
+            <p class="hint">
+              Enter the values and select “Run all disk algorithms”.
+            </p>
+          </div>
+          <h3>Seek graph: cylinder position vs. service order</h3>
+          <label style="max-width: 260px"
+            >Algorithm to step through<select
+              id="stepAlgo"
+              onchange="changeStepAlgo()"
+            >
+              <option>FCFS</option>
+              <option>SSTF</option>
+              <option>SCAN</option>
+              <option>C-SCAN</option>
+              <option>LOOK</option>
+            </select></label
+          >
+          <canvas id="seekCanvas" width="1000" height="280"></canvas>
+          <div class="actions">
+            <button onclick="stepDisk(-1)" id="prevBtn" disabled>
+              Previous step
+            </button>
+            <button onclick="stepDisk(1)" id="nextBtn" disabled>
+              Next step
+            </button>
+            <button onclick="playDisk()" id="playBtn" disabled>
+              Auto-play
+            </button>
+            <button onclick="stopDisk()" id="stopBtn" disabled>Stop</button>
+          </div>
+          <p id="stepInfo" class="hint">
+            Step mode will be available after running the algorithms.
+          </p>
+          <h3>Total head movement comparison</h3>
+          <canvas id="barCanvas" width="1000" height="260"></canvas>
+        </div>
+      </section>
+
+      <section id="cpuSection" class="hidden">
+        <div class="panel">
+          <h2>Part B: CPU Scheduling</h2>
+          <p class="hint">
+            This visualizer implements FCFS and SJF (Non-preemptive), two
+            algorithms from the assignment choices.
+          </p>
+          <div class="grid">
+            <label>Process ID<input id="pid" value="P1" /></label>
+            <label
+              >Arrival time<input id="arrival" type="number" min="0" value="0"
+            /></label>
+            <label
+              >Burst time<input id="burst" type="number" min="1" value="5"
+            /></label>
+            <label
+              >Priority (optional for these two algorithms)<input
+                id="priority"
+                type="number"
+                value="1"
+            /></label>
+          </div>
+          <div class="actions">
+            <button onclick="addProcess()">Add process</button
+            ><button onclick="loadCpuSample()">Load sample processes</button
+            ><button class="primary" onclick="runCpu()">Run FCFS and SJF</button
+            ><button onclick="clearProcesses()">Clear list</button>
+          </div>
+          <div id="cpuError" class="hint"></div>
+          <h3>Process list</h3>
+          <div id="processList" class="hint">No processes added yet.</div>
+        </div>
+        <div class="panel">
+          <h2>CPU scheduling results</h2>
+          <div id="cpuResults">
+            <p class="hint">Add processes, then run the algorithms.</p>
+          </div>
+        </div>
+      </section>
+      <footer>Operating Systems Assignment • OS Scheduling Visualizer</footer>
+    </main>
+    <script>
+      let diskRuns = {},
+        activeAlgo = "FCFS",
+        activeStep = 0,
+        timer = null,
+        processes = [];
+      function showTab(which) {
+        document
+          .getElementById("diskSection")
+          .classList.toggle("hidden", which !== "disk");
+        document
+          .getElementById("cpuSection")
+          .classList.toggle("hidden", which !== "cpu");
+        document
+          .getElementById("diskTab")
+          .classList.toggle("active", which === "disk");
+        document
+          .getElementById("cpuTab")
+          .classList.toggle("active", which === "cpu");
+      }
+      function parseDisk() {
+        const size = Number(document.getElementById("diskSize").value),
+          head = Number(document.getElementById("head").value);
+        const q = document
+          .getElementById("queue")
+          .value.split(",")
+          .map((x) => x.trim())
+          .filter((x) => x !== "")
+          .map(Number);
+        if (!Number.isInteger(size) || size < 2)
+          throw Error("Disk size must be an integer greater than 1.");
+        if (!Number.isInteger(head) || head < 0 || head >= size)
+          throw Error(
+            "Head position must be between 0 and " + (size - 1) + ".",
+          );
+        if (
+          !q.length ||
+          q.some((x) => !Number.isInteger(x) || x < 0 || x >= size)
+        )
+          throw Error(
+            "Enter valid integer requests between 0 and " + (size - 1) + ".",
+          );
+        return {
+          size,
+          head,
+          q,
+          dir: document.getElementById("direction").value,
+        };
+      }
+      function movement(path) {
+        let total = 0;
+        for (let i = 1; i < path.length; i++)
+          total += Math.abs(path[i] - path[i - 1]);
+        return total;
+      }
+      function diskAlgorithms({ size, head, q, dir }) {
+        const sorted = [...q].sort((a, b) => a - b),
+          left = sorted.filter((x) => x < head),
+          right = sorted.filter((x) => x >= head);
+        let out = {};
+        let path = [head, ...q];
+        out.FCFS = { path, total: movement(path), sequence: path.slice(1) };
+        let rem = [...q],
+          cur = head,
+          p = [head];
+        while (rem.length) {
+          let best = 0;
+          for (let i = 1; i < rem.length; i++)
+            if (Math.abs(rem[i] - cur) < Math.abs(rem[best] - cur)) best = i;
+          cur = rem.splice(best, 1)[0];
+          p.push(cur);
+        }
+        out.SSTF = { path: p, total: movement(p), sequence: p.slice(1) };
+        if (dir === "right") {
+          p = [head, ...right, size - 1, ...left.slice().reverse()];
+          let scan = [head, ...right, size - 1, ...left.slice().reverse()];
+          let look = [head, ...right, ...left.slice().reverse()];
+          let cscan = [head, ...right, size - 1, 0, ...left];
+          out.SCAN = {
+            path: scan,
+            total: movement(scan),
+            sequence: scan.slice(1),
+          };
+          out.LOOK = {
+            path: look,
+            total: movement(look),
+            sequence: look.slice(1),
+          };
+          out["C-SCAN"] = {
+            path: cscan,
+            total: movement(cscan),
+            sequence: cscan.slice(1),
+          };
+        } else {
+          let scan = [head, ...left.slice().reverse(), 0, ...right];
+          let look = [head, ...left.slice().reverse(), ...right];
+          let cscan = [
+            head,
+            ...left.slice().reverse(),
+            0,
+            size - 1,
+            ...right.slice().reverse(),
+          ];
+          out.SCAN = {
+            path: scan,
+            total: movement(scan),
+            sequence: scan.slice(1),
+          };
+          out.LOOK = {
+            path: look,
+            total: movement(look),
+            sequence: look.slice(1),
+          };
+          out["C-SCAN"] = {
+            path: cscan,
+            total: movement(cscan),
+            sequence: cscan.slice(1),
+          };
+        }
+        return out;
+      }
+      function runDisk() {
+        stopDisk();
+        try {
+          let data = parseDisk();
+          diskRuns = diskAlgorithms(data);
+          activeAlgo = "FCFS";
+          document.getElementById("stepAlgo").value = "FCFS";
+          activeStep = 0;
+          let names = ["FCFS", "SSTF", "SCAN", "C-SCAN", "LOOK"];
+          document.getElementById("diskResults").innerHTML = names
+            .map(
+              (n) =>
+                `<div style="margin:12px 0"><b>${n}</b><div class="stats"><div class="stat"><small>Total head movement</small><strong>${diskRuns[n].total}</strong></div></div><div class="sequence">Service sequence: ${diskRuns[n].sequence.join(" → ")}</div></div>`,
+            )
+            .join("");
+          drawBars(names.map((n) => [n, diskRuns[n].total]));
+          drawSeek();
+          ["prevBtn", "nextBtn", "playBtn", "stopBtn"].forEach(
+            (id) => (document.getElementById(id).disabled = false),
+          );
+          updateStep();
+        } catch (e) {
+          document.getElementById("diskError").textContent = e.message;
+        }
+      }
+      function loadDiskSample() {
+        document.getElementById("diskSize").value = 200;
+        document.getElementById("head").value = 50;
+        document.getElementById("queue").value =
+          "82, 170, 43, 140, 24, 16, 190";
+        document.getElementById("direction").value = "right";
+        runDisk();
+      }
+      function drawSeek() {
+        const c = document.getElementById("seekCanvas"),
+          ctx = c.getContext("2d"),
+          d = parseDisk(),
+          r = diskRuns[activeAlgo],
+          w = c.width,
+          h = c.height;
+        ctx.clearRect(0, 0, w, h);
+        ctx.strokeStyle = "#cbd5e1";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(55, 20);
+        ctx.lineTo(55, h - 35);
+        ctx.lineTo(w - 20, h - 35);
+        ctx.stroke();
+        ctx.fillStyle = "#475569";
+        ctx.font = "14px Arial";
+        ctx.fillText("Cylinder", 8, 16);
+        ctx.fillText("Service order", w - 115, h - 8);
+        for (let i = 0; i <= 4; i++) {
+          let y = 20 + ((h - 65) * i) / 4;
+          let val = Math.round((d.size - 1) * (1 - i / 4));
+          ctx.fillText(val, 8, y + 4);
+          ctx.strokeStyle = "#edf1f6";
+          ctx.beginPath();
+          ctx.moveTo(55, y);
+          ctx.lineTo(w - 20, y);
+          ctx.stroke();
+        }
+        let pts = r.path.map((v, i) => ({
+          x:
+            55 + (r.path.length === 1 ? 0 : i / (r.path.length - 1)) * (w - 85),
+          y: h - 35 - (v / (d.size - 1)) * (h - 55),
+        }));
+        if (pts.length > 1) {
+          ctx.beginPath();
+          pts.forEach((p, i) =>
+            i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y),
+          );
+          ctx.strokeStyle = "#2457d6";
+          ctx.lineWidth = 3;
+          ctx.stroke();
+        }
+        pts.forEach((p, i) => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+          ctx.fillStyle = i <= activeStep ? "#16845b" : "#2457d6";
+          ctx.fill();
+        });
+      }
+      function drawBars(rows) {
+        let c = document.getElementById("barCanvas"),
+          ctx = c.getContext("2d"),
+          w = c.width,
+          h = c.height;
+        ctx.clearRect(0, 0, w, h);
+        let max = Math.max(...rows.map((x) => x[1]), 1),
+          left = 100,
+          top = 20,
+          bw = w - left - 35,
+          row = 42;
+        rows.forEach(([name, val], i) => {
+          let y = top + i * row;
+          ctx.fillStyle = "#334155";
+          ctx.font = "15px Arial";
+          ctx.fillText(name, 12, y + 20);
+          ctx.fillStyle = "#dbeafe";
+          ctx.fillRect(left, y, (bw * val) / max, 25);
+          ctx.fillStyle = "#2457d6";
+          ctx.fillRect(left, y, (bw * val) / max, 25);
+          ctx.fillStyle = "#172033";
+          ctx.fillText(String(val), left + (bw * val) / max + 8, y + 19);
+        });
+      }
+      function changeStepAlgo() {
+        activeAlgo = document.getElementById("stepAlgo").value;
+        activeStep = 0;
+        updateStep();
+      }
+      function updateStep() {
+        let r = diskRuns[activeAlgo];
+        if (!r) return;
+        activeStep = Math.max(0, Math.min(activeStep, r.path.length - 1));
+        document.getElementById("stepInfo").textContent =
+          activeAlgo +
+          " | Step " +
+          activeStep +
+          " of " +
+          (r.path.length - 1) +
+          " | Current head position: " +
+          r.path[activeStep];
+        document.getElementById("prevBtn").disabled = activeStep === 0;
+        document.getElementById("nextBtn").disabled =
+          activeStep === r.path.length - 1;
+        drawSeek();
+      }
+      function stepDisk(delta) {
+        activeStep += delta;
+        updateStep();
+      }
+      function playDisk() {
+        stopDisk();
+        timer = setInterval(() => {
+          if (activeStep >= diskRuns[activeAlgo].path.length - 1) {
+            stopDisk();
+            return;
+          }
+          activeStep++;
+          updateStep();
+        }, 700);
+        document.getElementById("stopBtn").disabled = false;
+      }
+      function stopDisk() {
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+        }
+      }
+      function addProcess() {
+        let id = document.getElementById("pid").value.trim(),
+          a = Number(document.getElementById("arrival").value),
+          b = Number(document.getElementById("burst").value),
+          p = Number(document.getElementById("priority").value);
+        let err = document.getElementById("cpuError");
+        err.textContent = "";
+        if (!id || processes.some((x) => x.id === id)) {
+          err.textContent = "Enter a unique process ID.";
+          return;
+        }
+        if (!Number.isInteger(a) || a < 0 || !Number.isInteger(b) || b < 1) {
+          err.textContent =
+            "Arrival time must be 0 or more and burst time must be at least 1.";
+          return;
+        }
+        processes.push({ id, a, b, p });
+        renderProcesses();
+        document.getElementById("pid").value = "P" + (processes.length + 1);
+      }
+      function renderProcesses() {
+        document.getElementById("processList").innerHTML = processes.length
+          ? "<table><tr><th>Process</th><th>Arrival</th><th>Burst</th><th>Priority</th></tr>" +
+            processes
+              .map(
+                (x) =>
+                  `<tr><td>${x.id}</td><td>${x.a}</td><td>${x.b}</td><td>${x.p}</td></tr>`,
+              )
+              .join("") +
+            "</table>"
+          : "No processes added yet.";
+      }
+      function clearProcesses() {
+        processes = [];
+        renderProcesses();
+        document.getElementById("cpuResults").innerHTML = "";
+      }
+      function loadCpuSample() {
+        processes = [
+          { id: "P1", a: 0, b: 5, p: 2 },
+          { id: "P2", a: 1, b: 3, p: 1 },
+          { id: "P3", a: 2, b: 8, p: 3 },
+          { id: "P4", a: 3, b: 6, p: 2 },
+        ];
+        renderProcesses();
+        runCpu();
+      }
+      function scheduleFCFS(list) {
+        let t = 0,
+          out = [];
+        [...list]
+          .sort((x, y) => x.a - y.a)
+          .forEach((x) => {
+            let start = Math.max(t, x.a),
+              end = start + x.b;
+            out.push({ ...x, start, end, wait: start - x.a, tat: end - x.a });
+            t = end;
+          });
+        return out;
+      }
+      function scheduleSJF(list) {
+        let pending = [...list],
+          t = 0,
+          out = [];
+        while (pending.length) {
+          let ready = pending.filter((x) => x.a <= t);
+          if (!ready.length) {
+            t = Math.min(...pending.map((x) => x.a));
+            continue;
+          }
+          ready.sort((x, y) => x.b - y.b || x.a - y.a);
+          let x = ready[0];
+          pending.splice(pending.indexOf(x), 1);
+          let start = t,
+            end = t + x.b;
+          out.push({ ...x, start, end, wait: start - x.a, tat: end - x.a });
+          t = end;
+        }
+        return out;
+      }
+      function cpuHtml(name, rows) {
+        let avgW = rows.reduce((s, x) => s + x.wait, 0) / rows.length,
+          avgT = rows.reduce((s, x) => s + x.tat, 0) / rows.length;
+        return `<h3>${name}</h3><div class="gantt">${rows.map((x) => `<div class="block"><b>${x.id}</b>${x.start}–${x.end}</div>`).join("")}</div><table><tr><th>Process</th><th>Arrival</th><th>Burst</th><th>Waiting time</th><th>Turnaround time</th></tr>${rows.map((x) => `<tr><td>${x.id}</td><td>${x.a}</td><td>${x.b}</td><td>${x.wait}</td><td>${x.tat}</td></tr>`).join("")}</table><div class="stats"><div class="stat"><small>Average waiting time</small><strong>${avgW.toFixed(2)}</strong></div><div class="stat"><small>Average turnaround time</small><strong>${avgT.toFixed(2)}</strong></div></div>`;
+      }
+      function runCpu() {
+        if (!processes.length) {
+          document.getElementById("cpuError").textContent =
+            "Add at least one process first.";
+          return;
+        }
+        document.getElementById("cpuError").textContent = "";
+        document.getElementById("cpuResults").innerHTML =
+          cpuHtml("FCFS", scheduleFCFS(processes)) +
+          cpuHtml("SJF (Non-preemptive)", scheduleSJF(processes));
+      }
+    </script>
+  </body>
+</html>
